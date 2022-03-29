@@ -7,7 +7,7 @@ Clone, run make, add .cna to Cobalt Strike client.
 run: help persist-ice in CS console
 
 Syntax:
-- persist-ice [PrintMon, TimeProv, Shortcut, Junction] [persist or clean] [key/folder name] [dll / lnk exe name]");
+- persist-ice [PrintMon, TimeProv, Shortcut, Junction] [persist or clean] [key/folder name] [dll / lnk exe name];
 
 
 ## Technique Overview
