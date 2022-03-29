@@ -14,7 +14,7 @@ Syntax:
 All of these techniques rely on a Dll file to be seperately placed on disk.  It is intentially not part of the BOF.
 
 ### Print Monitor
-The Dll MUST be on disk and in a location in PATH (Dll search order) **BEFORE you run the BOF**.  It will fail otherwise.  The Dll will immediately be loaded by spoolsv.exe as SYSTEM.  This can be used to elevated from admin to SYSTEM as well as for persistence.  Will execute on system startup. **Must be elevated to run.**
+The Dll MUST be on disk and in a location in PATH (Dll search order) **BEFORE you run the BOF**.  It will fail otherwise.  The Dll will *immediately* be loaded by spoolsv.exe as SYSTEM.  This can be used to elevate from admin to SYSTEM as well as for persistence.  Will execute on system startup. **Must be elevated to run.**
 
 - Demo Print Monitor Dll in project
 
@@ -53,8 +53,15 @@ Example:
 
 ## References
 https://stmxcsr.com/persistence/print-monitor.html
+
 https://stmxcsr.com/persistence/time-provider.html
+
 https://pentestlab.blog/2019/10/28/persistence-port-monitors/
+
 https://blog.f-secure.com/hunting-for-junction-folder-persistence/
+
 https://attack.mitre.org/techniques/T1547/010/
+
 https://attack.mitre.org/techniques/T1547/003/
+
+https://attack.mitre.org/techniques/T1547/009/
