@@ -335,7 +335,7 @@ BOOL BuildShortCut(int cmd, wchar_t* newFolder, wchar_t* path2Hijack)
 		//Delete files in folder
 		LPWIN32_FIND_DATAW lpFindFileData = 0;
 		MSVCRT$wcscpy(dstPath, newFolder);
-		MSVCRT$wcscpy(dstPath, "\\*");
+		MSVCRT$wcscpy(dstPath, L"\\*");
 		hFind = KERNEL32$FindFirstFileW(dstPath, lpFindFileData);
 		BOOL success = TRUE;
 		if (hFind != INVALID_HANDLE_VALUE)
