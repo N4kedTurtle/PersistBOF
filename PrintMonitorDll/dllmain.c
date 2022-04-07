@@ -6,14 +6,14 @@
 // Malicious logic here
 BOOL WINAPI CsEnumPorts(HANDLE hMonitor, LPWSTR pName, DWORD Level, LPBYTE pPorts, DWORD cbBuf, LPDWORD pcbNeeded, LPDWORD pcReturned)
 {
-	STARTUPINFO si;
+	STARTUPINFOW si;
 	PROCESS_INFORMATION pi;
 
 	SecureZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	SecureZeroMemory(&pi, sizeof(pi));
 	const wchar_t* tp = L"notepad.exe";
-	CreateProcess((LPWSTR)tp, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
+	CreateProcessW((LPWSTR)tp, NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi);
 	
 	return TRUE;
 }
