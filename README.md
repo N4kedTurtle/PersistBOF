@@ -19,9 +19,11 @@ The Dll MUST be on disk and in a location in PATH (Dll search order) **BEFORE yo
 - Demo Print Monitor Dll in project
 
 Example:
-
-- persist-ice PrintMon persist TotesLegitMonitor NotMalware.dll
-- persist-ice PrintMon clean TotesLegitMonitor C:\Windows\NotMalware.dll  > Will delete the registery keys and unload the Dll, then attempt to delete the dll if provided the correct path.  Should succeed.
+1. upload NotMalware.dll to C:\Windows\NotMalware.dll
+2. persist-ice PrintMon persist TotesLegitMonitor NotMalware.dll
+3. Immediately executes as SYSTEM 
+4. Will execute on startup until removed
+5. persist-ice PrintMon clean TotesLegitMonitor C:\Windows\NotMalware.dll  > Will delete the registery keys and unload the Dll, then attempt to delete the dll if provided the correct path.  Should succeed.
 
 ### Time Provider
 Loaded by svchost.exe as NETWORK SERVICE (get your potatoes ready!) on startup after running the BOF.  **Must be elevated to run.**
