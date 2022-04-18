@@ -35,7 +35,7 @@ Example:
 - persist-ice TimeProv cleanup TotesLegitTimeProvider C:\anywhere\NotMalware.dll  > Will delete the registry keys and attempt to delete the dll if provided the correct path. Will probably fail because the dll is not unloaded by the process.
 
 ### Junction Folder
-Same technique as demonstrated in Vault 7 leaks. Executed on user login.  Non-elevated.
+Same technique as demonstrated in Vault 7 leaks. Executed on user login.  Non-elevated.  Dll will be loaded into explorer.exe 
 
 Example:
 
