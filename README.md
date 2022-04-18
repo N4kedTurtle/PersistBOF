@@ -39,8 +39,8 @@ Same technique as demonstrated in Vault 7 leaks. Executed on user login.  Non-el
 
 Example:
 
-- persist-ice Juction persist TotesLegitFolder C:\user-writable-folder\NotMalware.dll
-- persist-ice Juction clean TotesLegitFolder C:\user-writable-folder\NotMalware.dll > Will delete the registry keys, junction folder, and attempt to delete the dll. 
+- persist-ice Juction persist TotesLegitFolder C:\user-writable-folder\NotMalware.dll **Save CLSID**
+- persist-ice Juction clean TotesLegitFolder C:\user-writable-folder\NotMalware.dll 6be5e092-90cc-452d-be83-208029e259e0 > Will delete the registry keys, junction folder, and attempt to delete the dll. 
 
 
 ### Start Folder Hijack
