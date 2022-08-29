@@ -32,7 +32,7 @@ Loaded by svchost.exe as NETWORK SERVICE (get your potatoes ready!) on startup a
 
 Example:
 - persist-ice TimeProv persist TotesLegitTimeProvider C:\anywhere\NotMalware.dll
-- persist-ice TimeProv cleanup TotesLegitTimeProvider C:\anywhere\NotMalware.dll  > Will delete the registry keys and attempt to delete the dll if provided the correct path. Will probably fail because the dll is not unloaded by the process.
+- persist-ice TimeProv clean TotesLegitTimeProvider C:\anywhere\NotMalware.dll  > Will delete the registry keys and attempt to delete the dll if provided the correct path. Will probably fail because the dll is not unloaded by the process.
 
 ### Junction Folder
 Same technique as demonstrated in Vault 7 leaks. Executed on user login.  Non-elevated.  Dll will be loaded into explorer.exe 
