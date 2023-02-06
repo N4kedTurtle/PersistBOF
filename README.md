@@ -37,7 +37,7 @@ Example:
 ### Junction Folder
 Same technique as demonstrated in Vault 7 leaks. Executed on user login.  Non-elevated.  Dll will be loaded into explorer.exe 
 
-**NOTE: This needs to be a COM server dll to run properly.  Execute code out of DllRegisterServer.  Make sure to implement other required exports**
+**NOTE: This needs to be a COM server dll to run properly.  You can execute code out of DllRegisterServer, DllMain, or DllGetClassObject depending on what you are trying to do.  Make sure to implement other required exports**
 
 Example:
 
