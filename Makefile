@@ -7,3 +7,4 @@ icepick:
 	x86_64-w64-mingw32-strip -N PersistenceBOF.c persist-ice-shortcut.o
 	x86_64-w64-mingw32-gcc -c PersistenceBOF.c -o persist-ice-junction.o -DJUNCTION
 	x86_64-w64-mingw32-strip -N PersistenceBOF.c persist-ice-junction.o 
+	x86_64-w64-mingw32-gcc -c PersistenceBOF.c -o persist-ice-xll.o -DXLL

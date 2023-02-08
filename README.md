@@ -7,11 +7,20 @@ Clone, run make, add .cna to Cobalt Strike client.
 run: help persist-ice in CS console
 
 Syntax:
-- persist-ice [PrintMon, TimeProv, Shortcut, Junction] [persist or clean] [key/folder name] [dll / lnk exe name];
+- persist-ice [PrintMon, TimeProv, Shortcut, Junction, Xll] [persist or clean] [arg1] [arg2];
 
 
 ## Technique Overview
 All of these techniques rely on a Dll file to be seperately placed on disk.  It is intentially not part of the BOF.
+
+
+### Xll Add-in
+Create Dll with export xlAutoOpen().  Rename .dll to .xll and place in %appdata%\Microsoft\Addins.  Will be loaded any time Excel is opened with no notification.  Writes a registry key to HKEY_CURRENT_USER\SOFTWARE\Microsoft\Office\\{version number}\Excel\Options , provide the correct version number as there may be multiple.
+
+Example:
+
+- persist-ice Xll persist XllName.xll 16 
+- persist-ice Xll clean XllName.xll 16 > Will delete the registry key and attempt to delete the dll. 
 
 ### Print Monitor
 The Dll MUST be on disk and in a location in PATH (Dll search order) **BEFORE you run the BOF**.  It will fail otherwise.  The Dll will *immediately* be loaded by spoolsv.exe as SYSTEM.  This can be used to elevate from admin to SYSTEM as well as for persistence.  Will execute on system startup. **Must be elevated to run.**

