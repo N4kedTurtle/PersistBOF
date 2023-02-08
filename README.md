@@ -1,5 +1,5 @@
 # PersistBOF
-A tool to help automate common persistence mechanisms.  Currently supports Print Monitor (SYSTEM), Time Provider (Network Service), Start folder shortcut hijacking (User), Junction Folder (User), Xll Add-In (User)
+A tool to help automate common persistence mechanisms.  Currently supports Print Monitor (SYSTEM), Time Provider (Network Service), Start folder shortcut hijacking (User), Junction Folder (User), Xll Add-In (User).
 
 ## Usage
 Clone, run make, add .cna to Cobalt Strike client.
