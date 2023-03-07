@@ -60,7 +60,7 @@ Create a new, user writeable folder, copy a hijackable windows binary to the fol
 Example:
 
 - persist-ice Shortcut persist C:\TotesLegitFolder C:\Windows\System32\Dism.exe > upload your Dll as a proxy dll to dismcore.dll into C:\TotesLegitFolder
-- persist-ice Shortcut persist C:\TotesLegitFolder C:\Windows\System32\Dism.exe > Will attempt delete all files in new folder then delete the folder itself.  If the Dll is still loaded in the process then this will fail.
+- persist-ice Shortcut clean C:\TotesLegitFolder C:\Windows\System32\Dism.exe > Will attempt delete all files in new folder then delete the folder itself.  If the Dll is still loaded in the process then this will fail.
 
 
 
